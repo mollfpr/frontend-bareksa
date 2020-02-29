@@ -1,203 +1,197 @@
-import Head from 'next/head'
+/* eslint-disable jsx-a11y/label-has-associated-control */
+/* eslint-disable jsx-a11y/label-has-for */
+/* eslint-disable camelcase */
+/* eslint-disable prettier/prettier */
+import { Component } from 'react';
+import styled from 'styled-components';
+import { orderBy, isEmpty } from 'lodash';
+import { getRestaurants } from '../utils/api';
+import Items from '../components/Items';
+import Filter from '../components/Filter';
+import InputGroup from '../components/styles/InputGroupStyles';
+import SubmitButton from '../components/styles/SubmitButtonStyles';
+import FormStyle from '../components/styles/FormStyles';
+import LoadingStyle from '../components/styles/LoadingStyles';
 
-const Home = () => (
-  <div className="container">
-    <Head>
-      <title>Create Next App</title>
-      <link rel="icon" href="/favicon.ico" />
-    </Head>
+const HomeContainer = styled.div`
+  width: 1000px;
+  @media screen and (max-width: 600px) {
+    width: 100%;
+  }
+`;
 
-    <main>
-      <h1 className="title">
-        Welcome to <a href="https://nextjs.org">Next.js!</a>
-      </h1>
+class Home extends Component {
+  constructor() {
+    super();
 
-      <p className="description">
-        Get started by editing <code>pages/index.js</code>
-      </p>
+    this.state = {
+      loading: false,
+      found: 0,
+      start: 0,
+      count: 10,
+      restaurants: [],
+      q: 'Sushi'
+    };
+  }
 
-      <div className="grid">
-        <a href="https://nextjs.org/docs" className="card">
-          <h3>Documentation &rarr;</h3>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
+  componentDidMount() {
+    window.addEventListener('scroll', this.handleScroll, false);
+  }
 
-        <a href="https://nextjs.org/learn" className="card">
-          <h3>Learn &rarr;</h3>
-          <p>Learn about Next.js in an interactive course with quizzes!</p>
-        </a>
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this.handleScroll, false);
+  }
 
-        <a
-          href="https://github.com/zeit/next.js/tree/master/examples"
-          className="card"
-        >
-          <h3>Examples &rarr;</h3>
-          <p>Discover and deploy boilerplate example Next.js projects.</p>
-        </a>
+  handleChange = prop => event => {
+    const { name, type } = prop;
+    const { value } = type === 'select' ? event : event.target;
 
-        <a
-          href="https://zeit.co/new?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          className="card"
-        >
-          <h3>Deploy &rarr;</h3>
-          <p>
-            Instantly deploy your Next.js site to a public URL with ZEIT Now.
-          </p>
-        </a>
-      </div>
-    </main>
+    this.setState({ [name]: value });
+  };
 
-    <footer>
-      <a
-        href="https://zeit.co?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Powered by <img src="/zeit.svg" alt="ZEIT Logo" />
-      </a>
-    </footer>
+  handleSubmit = async event => {
+    event.preventDefault();
+    this.setState({
+      loading: true,
+      found: 0,
+      start: 0,
+      count: 10,
+      restaurants: []
+    });
+    const { q, city, start, count } = this.state;
+    const { results_shown, results_found, restaurants } = await getRestaurants({
+      q,
+      entity_id: city,
+      entity_type: 'city',
+      start,
+      count
+    });
 
-    <style jsx>{`
-      .container {
-        min-height: 100vh;
-        padding: 0 0.5rem;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-      }
+    this.setState({
+      loading: false,
+      found: results_found,
+      start: results_shown,
+      restaurants
+    });
+  };
 
-      main {
-        padding: 5rem 0;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-      }
+  handleScroll = async () => {
+    if (
+      window.innerHeight + document.documentElement.scrollTop !==
+      document.documentElement.offsetHeight
+    ) {
+      return;
+    }
 
-      footer {
-        width: 100%;
-        height: 100px;
-        border-top: 1px solid #eaeaea;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
+    const { q, city, start, count, found, restaurants } = this.state;
 
-      footer img {
-        margin-left: 0.5rem;
-      }
+    if (found >= restaurants.length) {
+      const {
+        results_found,
+        results_shown,
+        restaurants: newRestaurants
+      } = await getRestaurants({
+        q,
+        entity_id: city,
+        entity_type: 'city',
+        start,
+        count
+      });
 
-      footer a {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
+      this.setState({
+        loading: false,
+        found: results_found,
+        start: results_shown,
+        restaurants: [...restaurants, ...newRestaurants]
+      });
+    }
+  };
 
-      a {
-        color: inherit;
-        text-decoration: none;
-      }
+  handleFilter = values => {
+    this.setState({ loading: true });
+    const { restaurants } = this.state;
 
-      .title a {
-        color: #0070f3;
-        text-decoration: none;
-      }
+    if (values.total_review) {
+      this.setState({
+        restaurants: orderBy(
+          restaurants,
+          ['restaurant.all_reviews_count'],
+          [values.total_review]
+        )
+      });
+    }
 
-      .title a:hover,
-      .title a:focus,
-      .title a:active {
-        text-decoration: underline;
-      }
+    if (values.rating) {
+      this.setState({
+        restaurants: orderBy(
+          restaurants,
+          ['restaurant.user_rating.aggregate_rating'],
+          [values.rating]
+        )
+      });
+    }
 
-      .title {
-        margin: 0;
-        line-height: 1.15;
-        font-size: 4rem;
-      }
+    if (values.name) {
+      this.setState({
+        restaurants: orderBy(restaurants, ['restaurant.name'], [values.name])
+      });
+    }
 
-      .title,
-      .description {
-        text-align: center;
-      }
+    if (values.ratings) {
+      this.setState({
+        restaurants: restaurants.filter(({ restaurant }) =>
+          values.ratings.includes(
+            parseFloat(restaurant.user_rating.aggregate_rating)
+          )
+        )
+      });
+    }
 
-      .description {
-        line-height: 1.5;
-        font-size: 1.5rem;
-      }
+    if (values.city) {
+      this.setState({
+        restaurants: restaurants.filter(
+          ({ restaurant }) => restaurant.location.city_id === values.city
+        )
+      });
+    }
 
-      code {
-        background: #fafafa;
-        border-radius: 5px;
-        padding: 0.75rem;
-        font-size: 1.1rem;
-        font-family: Menlo, Monaco, Lucida Console, Liberation Mono,
-          DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
-      }
+    this.setState({ loading: false });
+  };
 
-      .grid {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-wrap: wrap;
+  render() {
+    const { q, loading, restaurants } = this.state;
 
-        max-width: 800px;
-        margin-top: 3rem;
-      }
+    return (
+      <HomeContainer>
+        <FormStyle onSubmit={this.handleSubmit}>
+          <InputGroup width="100%" mobileWidth="100%">
+            <label htmlFor="">Restaurant Name</label>
+            <input
+              type="text"
+              onChange={this.handleChange({ name: 'q', type: 'text' })}
+              value={q}
+            />
+          </InputGroup>
+          <SubmitButton type="submit" disabled={loading}>
+            Search
+          </SubmitButton>
+        </FormStyle>
 
-      .card {
-        margin: 1rem;
-        flex-basis: 45%;
-        padding: 1.5rem;
-        text-align: left;
-        color: inherit;
-        text-decoration: none;
-        border: 1px solid #eaeaea;
-        border-radius: 10px;
-        transition: color 0.15s ease, border-color 0.15s ease;
-      }
+        {!isEmpty(restaurants) && (
+          <>
+            <Filter handleFilter={this.handleFilter}></Filter>
+            <Items restaurants={restaurants}></Items>
+          </>
+        )}
+        {isEmpty(restaurants) && !loading && (
+          <center>
+            <h4>Restaurant Not Found</h4>
+          </center>
+        )}
+        {loading ? <LoadingStyle>Loading...</LoadingStyle> : ''}
+      </HomeContainer>
+    );
+  }
+}
 
-      .card:hover,
-      .card:focus,
-      .card:active {
-        color: #0070f3;
-        border-color: #0070f3;
-      }
-
-      .card h3 {
-        margin: 0 0 1rem 0;
-        font-size: 1.5rem;
-      }
-
-      .card p {
-        margin: 0;
-        font-size: 1.25rem;
-        line-height: 1.5;
-      }
-
-      @media (max-width: 600px) {
-        .grid {
-          width: 100%;
-          flex-direction: column;
-        }
-      }
-    `}</style>
-
-    <style jsx global>{`
-      html,
-      body {
-        padding: 0;
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
-          Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-    `}</style>
-  </div>
-)
-
-export default Home
+export default Home;
