@@ -8,7 +8,7 @@
     "start": "next start -p $PORT"
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "lodash": "^4.17.15",
     "next": "9.2.2",
     "react": "16.12.0",
